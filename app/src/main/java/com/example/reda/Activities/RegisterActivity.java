@@ -37,6 +37,10 @@ public class RegisterActivity extends AppCompatActivity {
     ImageView  ImgUserPhoto;
     static int PReqCode=1;
     static int REQUESCODE=1;
+
+
+    private static final int IMAGE_PICK_CODE=1000;
+
     Uri pickedImgUri ;
 
 
@@ -221,23 +225,17 @@ public class RegisterActivity extends AppCompatActivity {
 
 
         Intent galleryIntent = new Intent(Intent.ACTION_GET_CONTENT);
-        galleryIntent.setType("=image/*");
-        startActivityForResult(galleryIntent,REQUESCODE);
+        galleryIntent.setType("image/*");
+        startActivityForResult(galleryIntent, IMAGE_PICK_CODE);
 
     }
 
     @Override
     protected void onActivityResult(int requestCode, int resultCode, Intent data) {
         super.onActivityResult(requestCode, resultCode, data);
-        if (resultCode == RESULT_OK && requestCode == REQUESCODE && data != null){
-
-            //the user has successfully picked an image
-            //i need to save its reference to a Uri variable
-
-
-            pickedImgUri = data.getData();
-            ImgUserPhoto.setImageURI(pickedImgUri);
-
+        if (resultCode == RESULT_OK && requestCode == IMAGE_PICK_CODE){
+            //set image to image view
+            ImgUserPhoto.setImageURI(data.getData());
         }
 
     }
