@@ -2,8 +2,10 @@ package com.example.reda.Activities;
 
 import android.content.Intent;
 import android.support.annotation.NonNull;
+import android.support.design.widget.Snackbar;
 import android.support.v7.app.AppCompatActivity;
 import android.os.Bundle;
+import android.util.Log;
 import android.view.View;
 import android.widget.Button;
 import android.widget.EditText;
@@ -12,6 +14,7 @@ import android.widget.ProgressBar;
 import android.widget.TextView;
 import android.widget.Toast;
 
+import com.example.reda.MainActivity;
 import com.example.reda.R;
 import com.facebook.CallbackManager;
 import com.facebook.FacebookCallback;
@@ -20,11 +23,21 @@ import com.facebook.GraphRequest;
 import com.facebook.GraphResponse;
 import com.facebook.login.LoginResult;
 import com.facebook.login.widget.LoginButton;
+import com.google.android.gms.auth.api.Auth;
+import com.google.android.gms.auth.api.signin.GoogleSignInAccount;
+import com.google.android.gms.auth.api.signin.GoogleSignInOptions;
+import com.google.android.gms.auth.api.signin.GoogleSignInResult;
+import com.google.android.gms.common.ConnectionResult;
+import com.google.android.gms.common.SignInButton;
+import com.google.android.gms.common.api.GoogleApi;
+import com.google.android.gms.common.api.GoogleApiClient;
 import com.google.android.gms.tasks.OnCompleteListener;
 import com.google.android.gms.tasks.Task;
+import com.google.firebase.auth.AuthCredential;
 import com.google.firebase.auth.AuthResult;
 import com.google.firebase.auth.FirebaseAuth;
 import com.google.firebase.auth.FirebaseUser;
+import com.google.firebase.auth.GoogleAuthProvider;
 
 import org.json.JSONException;
 import org.json.JSONObject;
@@ -44,10 +57,99 @@ public class loginActivity extends AppCompatActivity {
     private ImageView loginPhoto;
     private TextView textView;
 
+
+
+    //login with gmail
+    SignInButton signInButton;
+    public static final int RC_SIGN_IN=1;
+
+    private GoogleApiClient mGoogleSignInClient;
+
+    private static final String TAG="LOGIN_ACTIVITY";
+
+    private FirebaseAuth.AuthStateListener mAuthListenner = new FirebaseAuth.AuthStateListener() {
+        @Override
+        public void onAuthStateChanged(@NonNull FirebaseAuth firebaseAuth) {
+            if (firebaseAuth.getCurrentUser() != null) {
+                startActivity(new Intent(loginActivity.this, HomeActivity.class));
+            }
+        }
+    };
+
+    @Override
+    public void onActivityResult(int requestCode, int resultCode, Intent data) {
+        super.onActivityResult(requestCode, resultCode,data);
+
+        //result return from launching the intent from GoogleSignInApi.getSignInIntent(...);
+        if (requestCode == RC_SIGN_IN){
+            GoogleSignInResult result= Auth.GoogleSignInApi.getSignInResultFromIntent(data);
+            if (result.isSuccess()){
+                //google sign in was successful, authentificate with firebase
+                GoogleSignInAccount account = result.getSignInAccount();
+                firebaseAuthWithGoogle(account);
+
+            }else {
+                //Google Sign in failed, update UI appropriately
+                //...
+            }
+        }
+
+    }
+
+    private void firebaseAuthWithGoogle(GoogleSignInAccount account) {
+        AuthCredential credential=GoogleAuthProvider.getCredential(account.getIdToken(), null);
+        mAuth.signInWithCredential(credential)
+                .addOnCompleteListener(this, new OnCompleteListener<AuthResult>() {
+                    @Override
+                    public void onComplete(@NonNull Task<AuthResult> task) {
+
+
+        Log.d(TAG, "signInWithCredential:onComplete"+task.isSuccessful());
+
+
+        if (!task.isSuccessful()){
+            Log.w(TAG, "signInWithCredential", task.getException());
+            Toast.makeText(loginActivity.this,"Authentification failed",Toast.LENGTH_SHORT)
+                    .show();
+
+        }
+                    }
+                });
+
+    }
+
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_login);
+
+        //login with gmail
+        signInButton=findViewById(R.id.google_btn);
+        // Configure Google Sign In
+        GoogleSignInOptions gso = new GoogleSignInOptions.Builder(GoogleSignInOptions.DEFAULT_SIGN_IN)
+                .requestIdToken(getString(R.string.default_web_client_id))
+                .requestEmail()
+                .build();
+
+        mGoogleSignInClient = new GoogleApiClient.Builder(getApplicationContext())
+                .enableAutoManage(this, new GoogleApiClient.OnConnectionFailedListener() {
+                    @Override
+                    public void onConnectionFailed(@NonNull ConnectionResult connectionResult) {
+
+                        Toast.makeText(loginActivity.this,"You got Error",Toast.LENGTH_LONG).show();
+                    }
+                }).addApi(Auth.GOOGLE_SIGN_IN_API, gso)
+                .build();
+
+        signInButton.setOnClickListener(new View.OnClickListener() {
+            @Override
+            public void onClick(View v) {
+                signIn();
+            }
+        });
+
+
+
 
         //facebook login
         loginButton= findViewById(R.id.login_button);
@@ -72,6 +174,16 @@ public class loginActivity extends AppCompatActivity {
                 graphRequest.executeAsync();
 
             }
+
+
+            //google implementation
+            private void signIn() {
+
+            }
+
+
+
+
 
             public void displayUserInfo(JSONObject object){
 
@@ -101,12 +213,6 @@ public class loginActivity extends AppCompatActivity {
 
             }
         });
-
-
-
-
-
-
 
 
         //Current code reda
@@ -166,6 +272,11 @@ public class loginActivity extends AppCompatActivity {
 
     }
 
+    private void signIn() {
+        Intent signInIntent = Auth.GoogleSignInApi.getSignInIntent(mGoogleSignInClient);
+        startActivityForResult(signInIntent, RC_SIGN_IN);
+    }
+
     private void SignIn(String mail, String password) {
         mAuth.signInWithEmailAndPassword(mail,password).addOnCompleteListener(new OnCompleteListener<AuthResult>() {
             @Override
@@ -202,6 +313,7 @@ public class loginActivity extends AppCompatActivity {
     protected void onStart() {
         super.onStart();
         FirebaseUser user= mAuth.getCurrentUser();
+        mAuth.addAuthStateListener(mAuthListenner);
 
         if (user != null){
             //user is already connected so we need to redirect him to home page
